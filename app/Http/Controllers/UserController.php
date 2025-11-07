@@ -12,10 +12,20 @@ use Illuminate\Validation\Rules;
 class UserController extends Controller
 {
     /**
-     * Display a listing of the resource.
-     */
+    * Mostrar el listado de recursos (usuarios).
+    */
     public function index(Request $request)
     {
+                // Agregar este logging temporal
+        \Log::info('=== PETICIÓN /api/users RECIBIDA ===');
+        \Log::info('IP: ' . request()->ip());
+        \Log::info('User Agent: ' . request()->userAgent());
+        \Log::info('URL Completa: ' . request()->fullUrl());
+        \Log::info('Método: ' . request()->method());
+        \Log::info('Headers: ' . json_encode(request()->headers->all()));
+        \Log::info('Timestamp: ' . now());
+        \Log::info('====================================');
+        
         // Solo admin y manager pueden ver usuarios
         $user = $request->user();
         
@@ -25,7 +35,7 @@ class UserController extends Controller
             ], Response::HTTP_FORBIDDEN);
         }
 
-        $query = User::with('role')->active();
+        $query = User::with('role');
 
         // Filtros
         if ($request->has('search')) {
@@ -44,8 +54,8 @@ class UserController extends Controller
     }
 
     /**
-     * createUser a newly created resource.
-     */
+    * Crear Usuario * creacion de (1) resource.
+    */
     public function createUser(Request $request)
     {
         $currentUser = $request->user();
@@ -105,8 +115,8 @@ class UserController extends Controller
     }
 
     /**
-     * Display the specified resource.
-     */
+    * Mostrar informacion (recursos) de usuario en especifico por ID.
+    */
     public function show(Request $request, $id)
     {
         $currentUser = $request->user();
@@ -149,9 +159,10 @@ class UserController extends Controller
             ]
         ]);
     }
+
     /**
-     * Update user profile (current user)
-     */
+    * Actualizar Usuario por el Perfil (current user)
+    */
     public function updateProfile(Request $request)  // ← QUITAR User $user
     {
         $user = $request->user();  // ← Obtener usuario actual
@@ -180,9 +191,10 @@ class UserController extends Controller
             'user' => $user->load('role')
         ]);
     }
+
     /**
-     * Update other users (admin/manager only)
-     */
+    * Actualizar Otros Usuarios - solo valido para (admin/manager)
+    */
     public function updateUser(Request $request, User $user)
     {
         $currentUser = $request->user();
@@ -214,12 +226,12 @@ class UserController extends Controller
 
         // RESTRICCIONES DE ROLES:
         
-        // Si es ADMIN, no puede editar Managers ni otros Admins
+        // Si es ADMIN, no puede editar Managers
         if ($currentUser->isAdmin()) {
             $targetUserRole = $user->role->name;
-            if ($targetUserRole === 'manager' || $targetUserRole === 'admin') {
+            if ($targetUserRole === 'manager') {
                 return response()->json([
-                    'message' => 'Admins can only edit customer users'
+                    'message' => 'Unauthorized. Only managers can edit managers.'
                 ], Response::HTTP_FORBIDDEN);
             }
             
@@ -247,9 +259,10 @@ class UserController extends Controller
             'user' => $user->load('role')
         ]);
     }
+
     /**
-     * Remove the specified resource.
-     */
+    * Elimina un (recurso) usuario en especifico por ID. - solo valido para (manager)
+    */
     public function destroy(Request $request, User $user)
     {
         $currentUser = $request->user();
@@ -276,8 +289,8 @@ class UserController extends Controller
     }
 
     /**
-     * Deactivate user (soft delete alternative)
-     */
+    * Desactiva un usuario - solo valido para (admin/manager)
+    */
     public function deactivate(Request $request, User $user)
     {
         $currentUser = $request->user();
@@ -289,15 +302,28 @@ class UserController extends Controller
             ], Response::HTTP_FORBIDDEN);
         }
 
-        $user->updateUser(['status' => false]);
+        // ✅ RESTRICCIONES ACTUALIZADAS según tus requerimientos:
+        if ($currentUser->isAdmin()) {
+            $targetUserRole = $user->role->name;
+            // Admin NO PUEDE desactivar Managers, pero SÍ puede desactivar otros Admins
+            if ($targetUserRole === 'manager') {
+                return response()->json([
+                    'message' => 'Admins cannot deactivate manager users'
+                ], Response::HTTP_FORBIDDEN);
+            }
+        }
+
+        // Manager puede desactivar cualquier usuario (incluyendo admins)
+        $user->update(['status' => false]);
 
         return response()->json([
-            'message' => 'User deactivated successfully'
+            'message' => 'User deactivated successfully',
+            'user' => $user->load('role')
         ]);
     }
 
     /**
-     * Activate user
+     * Activa un usuario - solo valido para (admin/manager)
      */
     public function activate(Request $request, User $user)
     {
@@ -310,10 +336,23 @@ class UserController extends Controller
             ], Response::HTTP_FORBIDDEN);
         }
 
-        $user->updateUser(['status' => true]);
+        // ✅ RESTRICCIONES ACTUALIZADAS según tus requerimientos:
+        if ($currentUser->isAdmin()) {
+            $targetUserRole = $user->role->name;
+            // Admin NO PUEDE activar Managers, pero SÍ puede activar otros Admins
+            if ($targetUserRole === 'manager') {
+                return response()->json([
+                    'message' => 'Admins cannot activate manager users'
+                ], Response::HTTP_FORBIDDEN);
+            }
+        }
+
+        // Manager puede activar cualquier usuario (incluyendo admins)
+        $user->update(['status' => true]);
 
         return response()->json([
-            'message' => 'User activated successfully'
+            'message' => 'User activated successfully',
+            'user' => $user->load('role')
         ]);
     }
 }
