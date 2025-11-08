@@ -16,7 +16,6 @@ class UserController extends Controller
     */
     public function index(Request $request)
     {
-                // Agregar este logging temporal
         \Log::info('=== PETICIÓN /api/users RECIBIDA ===');
         \Log::info('IP: ' . request()->ip());
         \Log::info('User Agent: ' . request()->userAgent());
@@ -25,10 +24,9 @@ class UserController extends Controller
         \Log::info('Headers: ' . json_encode(request()->headers->all()));
         \Log::info('Timestamp: ' . now());
         \Log::info('====================================');
-        
+
         // Solo admin y manager pueden ver usuarios
         $user = $request->user();
-        
         if (!$user->isAdmin() && !$user->isManager()) {
             return response()->json([
                 'message' => 'Unauthorized'
@@ -45,13 +43,14 @@ class UserController extends Controller
         if ($request->has('role')) {
             $query->byRole($request->role);
         }
-
-        $users = $query->paginate(10);
+        
+        $users = $query->get();
 
         return response()->json([
             'users' => $users
         ]);
     }
+
 
     /**
     * Crear Usuario * creacion de (1) resource.
