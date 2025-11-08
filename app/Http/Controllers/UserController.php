@@ -43,7 +43,7 @@ class UserController extends Controller
         if ($request->has('role')) {
             $query->byRole($request->role);
         }
-        
+
         $users = $query->get();
 
         return response()->json([
@@ -228,19 +228,24 @@ class UserController extends Controller
         // Si es ADMIN, no puede editar Managers
         if ($currentUser->isAdmin()) {
             $targetUserRole = $user->role->name;
+
             if ($targetUserRole === 'manager') {
                 return response()->json([
                     'message' => 'Unauthorized. Only managers can edit managers.'
                 ], Response::HTTP_FORBIDDEN);
             }
-            
-            // ✅ SOLO MANAGER PUEDE CAMBIAR ROLES - Admin NO puede cambiar roles
-            if ($request->has('role_id')) {
+
+            // 💡 Evitar falsos positivos de tipo y limpiar role_id
+            if ($request->has('role_id') && (int)$request->role_id !== (int)$user->role_id) {
                 return response()->json([
                     'message' => 'Only managers can change user roles'
                 ], Response::HTTP_FORBIDDEN);
             }
+
+            // 💡 Por seguridad, eliminar role_id si lo trae
+            $request->request->remove('role_id');
         }
+
 
         // Si se intenta cambiar role_id, verificar que sea Manager
         if ($request->has('role_id') && !$currentUser->isManager()) {
